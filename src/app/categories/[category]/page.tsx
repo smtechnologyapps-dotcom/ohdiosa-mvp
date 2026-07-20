@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { ArrowLeft } from "lucide-react";
 
 // Mock data (In production, this would fetch from Firebase)
@@ -58,12 +59,15 @@ export default async function CategoryPage({ params }: { params: Promise<{ categ
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-16">
             {products.map((product, idx) => (
               <div key={product.id} className="group cursor-pointer flex flex-col">
-                {/* Image Placeholder */}
+                {/* Product Image */}
                 <div className="w-full aspect-[3/4] bg-surface relative overflow-hidden mb-6 border border-transparent group-hover:border-gold/30 transition-colors duration-700">
-                  <div className="absolute inset-0 bg-black/40 group-hover:bg-black/10 transition-colors duration-700 z-0"></div>
-                  <span className="absolute inset-0 flex items-center justify-center text-steel text-xs uppercase tracking-widest group-hover:text-gold transition-colors duration-700 group-hover:scale-105 transform z-10">
-                    Product Image {product.id}
-                  </span>
+                  <Image 
+                    src={`/images/product_${categoryId}.jpg`} 
+                    alt={product.name} 
+                    fill 
+                    className="object-cover transition-transform duration-1000 group-hover:scale-105 z-0" 
+                  />
+                  <div className="absolute inset-0 bg-black/40 group-hover:bg-black/10 transition-colors duration-700 z-10 pointer-events-none"></div>
                 </div>
                 
                 {/* Product Info */}
