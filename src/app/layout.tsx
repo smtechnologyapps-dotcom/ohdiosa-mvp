@@ -4,6 +4,8 @@ import "./globals.css";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
 import { SalesAssistant } from "@/components/SalesAssistant";
+import { CartProvider } from "@/lib/CartContext";
+import { CartDrawer } from "@/components/CartDrawer";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -21,8 +23,8 @@ const playfair = Playfair_Display({
 });
 
 export const metadata: Metadata = {
-  title: "OHDIOSA | High-End Fashion",
-  description: "Premium high-end fashion e-commerce.",
+  title: "OHDIOSA | Alta Costura y Lujo",
+  description: "Exclusividad, diseño asimétrico y alta costura. E-Commerce premium.",
 };
 
 export default function RootLayout({
@@ -33,18 +35,19 @@ export default function RootLayout({
   return (
     <html
       lang="es"
-      className={`${geistSans.variable} ${geistMono.variable} ${playfair.variable} h-full antialiased`}
+      className={`${playfair.variable} ${geistSans.variable} ${geistMono.variable}`}
     >
-      <body className="min-h-full flex flex-col bg-canvas text-ink">
-        <Navbar />
-        <main className="flex-1 pt-20">
-          {children}
-        </main>
-        <Footer />
-        <SalesAssistant />
+      <body className="antialiased font-sans bg-background text-foreground min-h-screen flex flex-col">
+        <CartProvider>
+          <Navbar />
+          <CartDrawer />
+          <main className="flex-1">
+            {children}
+          </main>
+          <Footer />
+          <SalesAssistant />
+        </CartProvider>
       </body>
     </html>
   );
 }
-
-

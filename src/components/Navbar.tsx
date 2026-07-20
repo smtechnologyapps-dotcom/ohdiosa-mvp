@@ -3,14 +3,16 @@
 import Link from "next/link";
 import { ShoppingBag, Search, Menu, User } from "lucide-react";
 import { useState } from "react";
+import { useCart } from "@/lib/CartContext";
 import { motion, AnimatePresence } from "framer-motion";
 
 export function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const { totalItems, setIsDrawerOpen } = useCart();
 
   return (
     <>
-      <header className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-md border-b border-whisper">
+      <header className="fixed top-0 left-0 right-0 z-40 bg-background/80 backdrop-blur-md border-b border-whisper">
         <div className="max-w-[1400px] mx-auto px-6 md:px-12 h-20 flex items-center justify-between">
           
           {/* Mobile Menu Toggle */}
@@ -44,11 +46,16 @@ export function Navbar() {
             <Link href="/admin" className="text-foreground hover:text-gold transition-colors">
               <User size={20} strokeWidth={1.5} />
             </Link>
-            <button className="text-foreground hover:text-gold transition-colors relative">
+            <button 
+              onClick={() => setIsDrawerOpen(true)}
+              className="text-foreground hover:text-gold transition-colors relative cursor-pointer"
+            >
               <ShoppingBag size={20} strokeWidth={1.5} />
-              <span className="absolute -top-1 -right-2 text-[10px] bg-gold text-canvas rounded-full h-4 w-4 flex items-center justify-center font-bold">
-                0
-              </span>
+              {totalItems > 0 && (
+                <span className="absolute -top-1 -right-2 text-[10px] bg-gold text-canvas rounded-full h-4 w-4 flex items-center justify-center font-bold">
+                  {totalItems}
+                </span>
+              )}
             </button>
           </nav>
         </div>

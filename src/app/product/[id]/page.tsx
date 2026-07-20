@@ -3,6 +3,7 @@ import Image from "next/image";
 import { ArrowLeft, Check, Truck } from "lucide-react";
 import { getProductById } from "@/lib/data";
 import { notFound } from "next/navigation";
+import { AddToCartButton } from "@/components/AddToCartButton";
 
 export default async function ProductPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = await params;
@@ -63,10 +64,7 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
               </div>
             </div>
 
-            <button className="w-full bg-ink text-canvas hover:bg-gold transition-colors duration-500 py-5 text-sm uppercase tracking-widest font-semibold flex items-center justify-center gap-3 group">
-              Añadir a la Bolsa
-              <span className="w-8 h-[1px] bg-canvas group-hover:w-12 transition-all duration-300"></span>
-            </button>
+            <AddToCartButton product={product} />
           </div>
         </div>
       </div>
