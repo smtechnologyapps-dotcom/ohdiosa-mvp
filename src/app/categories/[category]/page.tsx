@@ -1,29 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { ArrowLeft } from "lucide-react";
-
-// Mock data (In production, this would fetch from Firebase)
-const categoryProducts = {
-  clothes: [
-    { id: 1, name: "Vestido Asimétrico Noir", price: 1200, category: "Alta Costura" },
-    { id: 2, name: "Blazer Estructurado Oro", price: 1550, category: "Sastrería" },
-    { id: 3, name: "Pantalón Seda Canvas", price: 920, category: "Pantalones" },
-    { id: 4, name: "Abrigo Oversize Lana", price: 2100, category: "Abrigos" },
-  ],
-  accessories: [
-    { id: 5, name: "Collar Champagne", price: 890, category: "Joyería Fina" },
-    { id: 6, name: "Brazalete Geométrico", price: 1100, category: "Joyería Fina" },
-    { id: 7, name: "Gafas Dark Acetato", price: 450, category: "Gafas" },
-  ],
-  bags: [
-    { id: 8, name: "Bolso Tote Estructurado", price: 1800, category: "Bolsos de Mano" },
-    { id: 9, name: "Clutch Oro Macizo", price: 3200, category: "Noche" },
-  ],
-  shoes: [
-    { id: 10, name: "Botas Altas Cuero", price: 1450, category: "Botas" },
-    { id: 11, name: "Stilettos Asimétricos", price: 980, category: "Tacones" },
-  ]
-};
+import { products } from "@/lib/data";
 
 const categoryTitles = {
   clothes: "Alta Costura",
@@ -34,8 +12,8 @@ const categoryTitles = {
 
 export default async function CategoryPage({ params }: { params: Promise<{ category: string }> }) {
   const resolvedParams = await params;
-  const categoryId = resolvedParams.category as keyof typeof categoryProducts;
-  const products = categoryProducts[categoryId] || [];
+  const categoryId = resolvedParams.category as keyof typeof products;
+  const categoryProductsList = products[categoryId] || [];
   const title = categoryTitles[categoryId] || "Colección";
 
   return (
@@ -51,14 +29,14 @@ export default async function CategoryPage({ params }: { params: Promise<{ categ
           <div className="w-24 h-[1px] bg-gold"></div>
         </header>
 
-        {products.length === 0 ? (
+        {categoryProductsList.length === 0 ? (
           <div className="py-24 text-center">
             <p className="text-steel font-sans">No hay piezas disponibles en esta colección actualmente.</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-16">
-            {products.map((product, idx) => (
-              <div key={product.id} className="group cursor-pointer flex flex-col">
+            {categoryProductsList.map((product) => (
+              <Link href={`/product/${product.id}`} key={product.id} className="group cursor-pointer flex flex-col">
                 {/* Product Image */}
                 <div className="w-full aspect-[3/4] bg-surface relative overflow-hidden mb-6 border border-transparent group-hover:border-gold/30 transition-colors duration-700">
                   <Image 
@@ -77,11 +55,11 @@ export default async function CategoryPage({ params }: { params: Promise<{ categ
                   <div className="mt-auto pt-4 flex items-center justify-between">
                     <span className="font-mono text-ink">${product.price.toLocaleString()}</span>
                     <span className="text-xs uppercase font-semibold text-gold tracking-widest opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                      Ver Pieza
+                      Descubrir
                     </span>
                   </div>
                 </div>
-              </div>
+              </Link>
             ))}
           </div>
         )}
