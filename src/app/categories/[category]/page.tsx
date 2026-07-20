@@ -17,7 +17,7 @@ export default async function CategoryPage({ params }: { params: Promise<{ categ
   const title = categoryTitles[categoryId] || "Colección";
 
   return (
-    <div className="min-h-screen bg-canvas animate-in fade-in duration-1000 pt-12 pb-24">
+    <div className="min-h-screen bg-canvas animate-in fade-in duration-1000 pt-32 pb-24">
       <div className="max-w-[1400px] mx-auto px-6 md:px-12">
         <header className="mb-16">
           <Link href="/" className="inline-flex items-center gap-2 text-steel hover:text-gold transition-colors text-xs uppercase tracking-widest font-semibold mb-8">
