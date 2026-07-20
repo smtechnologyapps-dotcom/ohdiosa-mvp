@@ -11,11 +11,16 @@ export default function Home() {
   const x = useMotionValue(0);
   const smoothX = useSpring(x, { stiffness: 50, damping: 20 });
   const [maxScroll, setMaxScroll] = useState(0);
+  const [isDesktop, setIsDesktop] = useState(true);
 
   useEffect(() => {
     const updateMaxScroll = () => {
-      if (carouselRef.current && containerRef.current) {
+      const desktop = window.innerWidth >= 768;
+      setIsDesktop(desktop);
+      if (carouselRef.current && containerRef.current && desktop) {
         setMaxScroll(carouselRef.current.scrollWidth - containerRef.current.clientWidth + 100);
+      } else {
+        setMaxScroll(0);
       }
     };
     
@@ -118,16 +123,17 @@ export default function Home() {
         
         <div 
           ref={containerRef}
-          className="pl-6 md:pl-12 mx-auto overflow-visible cursor-ew-resize relative h-[70vh]"
+          className="pl-6 md:pl-12 mx-auto overflow-x-auto md:overflow-visible snap-x snap-mandatory md:snap-none cursor-ew-resize relative h-[70vh]"
+          style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
           onMouseMove={handleMouseMove}
         >
           <motion.div 
             ref={carouselRef}
-            className="flex gap-8 w-max"
-            style={{ x: smoothX }}
+            className="flex gap-8 w-max [&::-webkit-scrollbar]:hidden"
+            style={{ x: isDesktop ? smoothX : 0 }}
           >
             {/* Category: Ropa Casual */}
-            <motion.div className="min-w-[320px] md:min-w-[480px] flex flex-col group">
+            <motion.div className="min-w-[85vw] md:min-w-[480px] flex flex-col group snap-center md:snap-align-none">
               <Link href="/categories/casual" className="block w-full h-[60vh] bg-surface relative overflow-hidden border border-transparent hover:border-gold/30 transition-colors duration-700">
                 <Image 
                   src="/images/casual.jpg" 
@@ -146,7 +152,7 @@ export default function Home() {
             </motion.div>
 
             {/* Category: Ropa de Noche */}
-            <motion.div className="min-w-[320px] md:min-w-[480px] flex flex-col group">
+            <motion.div className="min-w-[85vw] md:min-w-[480px] flex flex-col group snap-center md:snap-align-none">
               <Link href="/categories/noche" className="block w-full h-[60vh] bg-surface relative overflow-hidden border border-transparent hover:border-gold/30 transition-colors duration-700">
                 <Image 
                   src="/images/evening.jpg" 
@@ -165,7 +171,7 @@ export default function Home() {
             </motion.div>
 
             {/* Category: Trabajo */}
-            <motion.div className="min-w-[320px] md:min-w-[480px] flex flex-col group">
+            <motion.div className="min-w-[85vw] md:min-w-[480px] flex flex-col group snap-center md:snap-align-none">
               <Link href="/categories/trabajo" className="block w-full h-[60vh] bg-surface relative overflow-hidden border border-transparent hover:border-gold/30 transition-colors duration-700">
                 <Image 
                   src="/images/work.jpg" 
@@ -184,7 +190,7 @@ export default function Home() {
             </motion.div>
 
             {/* Category: Accesorios */}
-            <motion.div className="min-w-[320px] md:min-w-[480px] flex flex-col group">
+            <motion.div className="min-w-[85vw] md:min-w-[480px] flex flex-col group snap-center md:snap-align-none">
               <Link href="/categories/accesorios" className="block w-full h-[60vh] bg-surface relative overflow-hidden border border-transparent hover:border-gold/30 transition-colors duration-700">
                 <Image 
                   src="/images/jewelry.jpg" 
