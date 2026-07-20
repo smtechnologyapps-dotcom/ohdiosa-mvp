@@ -29,11 +29,14 @@ export function SalesAssistant() {
 
   const { items, addToCart } = useCart();
   const prevItemsLength = useRef(items.length);
+  const hasSuggested = useRef(false);
 
   // Proactive Cart Suggestions
   useEffect(() => {
-    if (items.length > prevItemsLength.current) {
-      // User added a new item
+    if (items.length > prevItemsLength.current && !hasSuggested.current) {
+      // User added a new item and we haven't suggested anything yet
+      hasSuggested.current = true; // Mark as suggested so we don't spam the user
+      
       setTimeout(() => {
         setMessages(prev => [
           ...prev, 
