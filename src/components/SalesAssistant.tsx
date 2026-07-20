@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 import { MessageSquare, X, Send, Search } from "lucide-react";
+import { useCart } from "@/lib/CartContext";
 
 type Message = {
   id: number;
@@ -24,6 +25,46 @@ export function SalesAssistant() {
     { id: 1, sender: 'assistant', text: 'Bienvenido a OHDIOSA. Soy Isabella, tu Concierge personal. ¿Buscas alguna pieza en particular hoy?' }
   ]);
   const [input, setInput] = useState("");
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  const { items, addToCart } = useCart();
+  const prevItemsLength = useRef(items.length);
+
+  // Proactive Cart Suggestions
+  useEffect(() => {
+    if (items.length > prevItemsLength.current) {
+      // User added a new item
+      setTimeout(() => {
+        setMessages(prev => [
+          ...prev, 
+          {
+            id: Date.now(),
+            sender: 'assistant',
+            text: '¡Excelente elección! Creo que puedes completar tu look para esta ocasión perfectamente con esta pieza:'
+          },
+          {
+            id: Date.now() + 1,
+            sender: 'assistant',
+            isProduct: true,
+            product: {
+              name: "Clutch Oro Macizo",
+              price: "$3,200",
+              image: "/images/product_bags.jpg"
+            }
+          }
+        ]);
+        if (!isOpen) {
+          setUnreadCount(prev => prev + 1);
+        }
+      }, 2500); // Isabella responds 2.5s after adding to cart
+    }
+    prevItemsLength.current = items.length;
+  }, [items.length, isOpen]);
+
+  // Clear unread on open
+  useEffect(() => {
+    if (isOpen) setUnreadCount(0);
+  }, [isOpen]);
 
   const handleSend = () => {
     if (!input.trim()) return;
@@ -126,6 +167,28 @@ export function SalesAssistant() {
             <Image src="/images/avatar.jpg" alt="Isabella Concierge" fill className="object-cover" />
             <div className="absolute inset-0 bg-gold/10 mix-blend-overlay"></div>
             <div className="absolute inset-0 bg-white/20 rounded-full animate-ping opacity-30"></div>
+            
+            {/* Unread Badge */}
+            {unreadCount > 0 && (
+              <motion.div 
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                className="absolute top-0 right-0 w-5 h-5 bg-gold rounded-full border-2 border-background flex items-center justify-center text-[10px] font-bold text-canvas z-20"
+              >
+                {unreadCount}
+              </motion.div>
+            )}
+
+            {/* Floating message hint */}
+            {unreadCount > 0 && (
+              <motion.div 
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                className="absolute right-20 top-1/2 -translate-y-1/2 whitespace-nowrap bg-surface border border-gold/30 px-4 py-2 text-xs font-serif text-gold shadow-xl"
+              >
+                Tengo una sugerencia para ti...
+              </motion.div>
+            )}
           </motion.button>
         )}
       </AnimatePresence>
@@ -191,7 +254,10 @@ export function SalesAssistant() {
                         </div>
                         <span className="font-serif text-gold text-base">{msg.product.name}</span>
                         <span className="font-mono text-xs">{msg.product.price}</span>
-                        <button className="text-[10px] uppercase tracking-widest bg-ink text-canvas py-2 hover:bg-gold transition-colors">
+                        <button 
+                          onClick={() => addToCart({ id: "999", name: msg.product!.name, price: parseInt(msg.product!.price.replace(/\D/g, '')), image: "bags" })}
+                          className="text-[10px] uppercase tracking-widest bg-ink text-canvas py-2 hover:bg-gold transition-colors"
+                        >
                           Añadir a Bolsa
                         </button>
                       </div>
