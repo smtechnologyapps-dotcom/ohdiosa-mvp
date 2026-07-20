@@ -1,26 +1,38 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #09090B; /* Canvas Black */
+  --foreground: #F9FAFB; /* Off-White Ink */
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  
+  --color-canvas: #09090B;
+  --color-surface: #18181B;
+  --color-gold: #D4AF37;
+  --color-gold-muted: #B89932;
+  --color-ink: #F9FAFB;
+  --color-steel: #A1A1AA;
+  --color-whisper: rgba(212,175,55,0.2);
+
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --font-serif: var(--font-playfair);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans), sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Custom Utilities for Premium Vibe */
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
 }
