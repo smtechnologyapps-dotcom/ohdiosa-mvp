@@ -7,7 +7,6 @@ import { SalesAssistant } from "@/components/SalesAssistant";
 import { CartProvider } from "@/lib/CartContext";
 import { CartDrawer } from "@/components/CartDrawer";
 import { SmoothScroll } from "@/components/SmoothScroll";
-import { CustomCursor } from "@/components/CustomCursor";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -39,9 +38,8 @@ export default function RootLayout({
       lang="es"
       className={`${playfair.variable} ${geistSans.variable} ${geistMono.variable}`}
     >
-      <body className="antialiased font-sans bg-background text-foreground min-h-screen flex flex-col cursor-none">
+      <body className="antialiased font-sans bg-background text-foreground min-h-screen flex flex-col">
         <SmoothScroll>
-          <CustomCursor />
           <CartProvider>
             <Navbar />
             <CartDrawer />
