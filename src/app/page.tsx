@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { motion, useMotionValue, useSpring } from "framer-motion";
+import { motion, useMotionValue, useSpring, useScroll, useTransform } from "framer-motion";
 import { useRef, useEffect, useState } from "react";
 
 export default function Home() {
@@ -12,6 +12,11 @@ export default function Home() {
   const smoothX = useSpring(x, { stiffness: 50, damping: 20 });
   const [maxScroll, setMaxScroll] = useState(0);
   const [isDesktop, setIsDesktop] = useState(true);
+
+  // Parallax setup
+  const { scrollYProgress } = useScroll();
+  const heroImageY = useTransform(scrollYProgress, [0, 1], ["0%", "20%"]);
+  const secondaryImageY = useTransform(scrollYProgress, [0, 1], ["0%", "-30%"]);
 
   useEffect(() => {
     const updateMaxScroll = () => {
@@ -43,13 +48,36 @@ export default function Home() {
         {/* Left Typography Focus */}
         <div className="flex-1 flex flex-col justify-center mt-20 md:mt-0 z-10">
           <motion.h1 
-            initial={{ opacity: 0, y: 40 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 1, ease: [0.16, 1, 0.3, 1] }}
-            className="font-serif text-5xl md:text-7xl lg:text-8xl tracking-tight leading-[1.1] text-balance mb-6"
+            initial="hidden"
+            animate="visible"
+            variants={{
+              hidden: {},
+              visible: { transition: { staggerChildren: 0.15 } }
+            }}
+            className="font-serif text-5xl md:text-7xl lg:text-8xl tracking-tight leading-[1.1] text-balance mb-6 flex flex-col"
           >
-            Lujo <br className="hidden md:block"/>
-            <span className="italic font-light text-gold">Redefinido.</span>
+            <span className="overflow-hidden inline-block pb-2">
+              <motion.span
+                variants={{
+                  hidden: { y: "110%" },
+                  visible: { y: 0, transition: { duration: 1.2, ease: [0.16, 1, 0.3, 1] } }
+                }}
+                className="inline-block"
+              >
+                Lujo
+              </motion.span>
+            </span>
+            <span className="overflow-hidden inline-block pb-2">
+              <motion.span
+                variants={{
+                  hidden: { y: "110%" },
+                  visible: { y: 0, transition: { duration: 1.2, ease: [0.16, 1, 0.3, 1] } }
+                }}
+                className="inline-block italic font-light text-gold"
+              >
+                Redefinido.
+              </motion.span>
+            </span>
           </motion.h1>
           
           <motion.p 
@@ -85,27 +113,32 @@ export default function Home() {
             transition={{ duration: 1.2, ease: [0.16, 1, 0.3, 1] }}
             className="relative w-2/3 h-[80%] md:h-[90%] overflow-hidden z-0 group"
           >
-            <Image 
-              src="/images/hero_main.jpg" 
-              alt="Modelo usando alta costura OHDIOSA" 
-              fill 
-              className="object-cover transition-transform duration-1000 group-hover:scale-110"
-              priority
-            />
+            <motion.div style={{ y: heroImageY }} className="absolute inset-0 -top-[20%] h-[140%]">
+              <Image 
+                src="/images/hero_main.jpg" 
+                alt="Modelo usando alta costura OHDIOSA" 
+                fill 
+                className="object-cover transition-transform duration-1000 group-hover:scale-105"
+                priority
+              />
+            </motion.div>
           </motion.div>
           
           <motion.div 
             initial={{ opacity: 0, y: 50 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 1, delay: 0.3, ease: [0.16, 1, 0.3, 1] }}
+            style={{ y: secondaryImageY }}
             className="absolute bottom-0 left-0 w-1/2 h-[50%] md:h-[60%] border-4 border-background overflow-hidden z-20 hidden md:block group"
           >
-            <Image 
-              src="/images/hero_secondary.jpg" 
-              alt="Detalle de joyas oro" 
-              fill 
-              className="object-cover transition-transform duration-1000 group-hover:scale-110"
-            />
+            <motion.div className="absolute inset-0 -top-[20%] h-[140%]">
+              <Image 
+                src="/images/hero_secondary.jpg" 
+                alt="Detalle de joyas oro" 
+                fill 
+                className="object-cover transition-transform duration-1000 group-hover:scale-105"
+              />
+            </motion.div>
           </motion.div>
         </div>
       </section>
