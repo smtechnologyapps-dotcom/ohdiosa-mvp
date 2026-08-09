@@ -30,12 +30,13 @@ export function SalesAssistant() {
   const { items, addToCart } = useCart();
   const prevItemsLength = useRef(items.length);
   const hasSuggested = useRef(false);
+  const hasReminded = useRef(false);
 
-  // Proactive Cart Suggestions
+  // Proactive Cart Suggestions & Neuro-sales Reminder
   useEffect(() => {
+    // 1. Proactive Suggestion (Upsell)
     if (items.length > prevItemsLength.current && !hasSuggested.current) {
-      // User added a new item and we haven't suggested anything yet
-      hasSuggested.current = true; // Mark as suggested so we don't spam the user
+      hasSuggested.current = true;
       
       setTimeout(() => {
         setMessages(prev => [
@@ -59,9 +60,37 @@ export function SalesAssistant() {
         if (!isOpen) {
           setUnreadCount(prev => prev + 1);
         }
-      }, 2500); // Isabella responds 2.5s after adding to cart
+      }, 2500);
     }
+    
+    // 2. Cart Abandonment Reminder (Neuro-sales: Scarcity & FOMO)
+    let reminderTimeout: NodeJS.Timeout;
+    if (items.length > 0 && !hasReminded.current) {
+      // Trigger reminder after 20 seconds of having items in the cart
+      reminderTimeout = setTimeout(() => {
+        hasReminded.current = true;
+        setMessages(prev => [
+          ...prev,
+          {
+            id: Date.now(),
+            sender: 'assistant',
+            text: 'Noté que tienes artículos esperando en tu bolsa. Nuestras colecciones son de edición estrictamente limitada y las piezas vuelan rápido. Sería una verdadera lástima que perdieras tu selección. ¿Te ayudo a asegurar tu compra ahora?'
+          }
+        ]);
+        if (!isOpen) {
+          setUnreadCount(prev => prev + 1);
+        }
+      }, 20000); // 20 seconds for demo purposes
+    }
+
+    if (items.length === 0) {
+      hasReminded.current = false; // Reset if cart is empty
+      hasSuggested.current = false; // Reset suggestions if they empty the cart
+    }
+
     prevItemsLength.current = items.length;
+
+    return () => clearTimeout(reminderTimeout);
   }, [items.length, isOpen]);
 
   // Clear unread on open
