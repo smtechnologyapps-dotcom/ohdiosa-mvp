@@ -7,28 +7,37 @@ import {
   FittingItem,
   CuratedLook,
   GarmentCategory,
+  BodySilhouette,
+  SILHOUETTE_PROFILES,
 } from "@/lib/fittingRoomData";
-import { Check, Sparkles, Shuffle, Info, Crown, ChevronRight } from "lucide-react";
+import { Check, Sparkles, Shuffle, Info, ChevronRight, Sliders, Ruler, Filter } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 interface LookCarouselProps {
   selectedItems: { [key in GarmentCategory]?: FittingItem | null };
+  activeSilhouette: BodySilhouette;
   onSelectItem: (item: FittingItem) => void;
   onSelectCuratedLook: (look: CuratedLook) => void;
   onRandomizeLook: () => void;
+  onOpenScanner: () => void;
   activeCategory: GarmentCategory | "curated";
   setActiveCategory: (cat: GarmentCategory | "curated") => void;
 }
 
 export function LookCarousel({
   selectedItems,
+  activeSilhouette,
   onSelectItem,
   onSelectCuratedLook,
   onRandomizeLook,
+  onOpenScanner,
   activeCategory,
   setActiveCategory,
 }: LookCarouselProps) {
   const [inspectingItem, setInspectingItem] = useState<FittingItem | null>(null);
+  const [filterOnlyRecommended, setFilterOnlyRecommended] = useState<boolean>(false);
+
+  const silhouetteProfile = SILHOUETTE_PROFILES[activeSilhouette];
 
   const categories = [
     { key: "garment" as const, label: "Alta Costura", icon: "👗", count: 4 },
@@ -38,15 +47,55 @@ export function LookCarousel({
     { key: "curated" as const, label: "Looks de Pasarela", icon: "👑", count: 4 },
   ];
 
-  const currentCategoryItems =
+  let currentCategoryItems =
     activeCategory === "curated"
       ? []
       : FITTING_ITEMS.filter((item) => item.category === activeCategory);
 
+  if (filterOnlyRecommended && activeCategory !== "curated") {
+    currentCategoryItems = currentCategoryItems.filter((item) =>
+      item.favoredSilhouettes.includes(activeSilhouette)
+    );
+  }
+
   return (
     <div className="flex flex-col h-full bg-surface/50 rounded-2xl border border-whisper p-4 md:p-6 backdrop-blur-xl">
+      {/* Top Bar: Silhouette Feedback Banner */}
+      <div className="flex items-center justify-between bg-canvas/60 border border-whisper/80 rounded-xl px-3.5 py-2 mb-4 text-xs">
+        <div className="flex items-center gap-2">
+          <span className="w-2 h-2 rounded-full bg-gold animate-pulse" />
+          <span className="text-steel font-mono">Silueta Activa:</span>
+          <span className="font-serif text-foreground font-semibold">
+            {silhouetteProfile.name}
+          </span>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setFilterOnlyRecommended(!filterOnlyRecommended)}
+            className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-mono transition-all cursor-pointer ${
+              filterOnlyRecommended
+                ? "bg-gold text-canvas font-bold shadow-sm"
+                : "text-steel hover:text-foreground bg-surface border border-whisper"
+            }`}
+            title="Filtrar prendas recomendadas para tu silueta"
+          >
+            <Filter size={12} />
+            <span>{filterOnlyRecommended ? "Solo Recomendadas" : "Todas"}</span>
+          </button>
+
+          <button
+            onClick={onOpenScanner}
+            className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-mono text-gold hover:bg-gold/10 transition-colors cursor-pointer"
+          >
+            <Ruler size={12} />
+            <span>Cambiar Medidas</span>
+          </button>
+        </div>
+      </div>
+
       {/* Category Tabs & Quick Action */}
-      <div className="flex items-center justify-between gap-2 border-b border-whisper/80 pb-4 mb-4 overflow-x-auto no-scrollbar">
+      <div className="flex items-center justify-between gap-2 border-b border-whisper/80 pb-3 mb-4 overflow-x-auto no-scrollbar">
         <div className="flex items-center gap-1.5 min-w-max">
           {categories.map((cat) => {
             const isActive = activeCategory === cat.key;
@@ -91,12 +140,13 @@ export function LookCarousel({
           /* CURATED LOOKS VIEW */
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
             {CURATED_LOOKS.map((look) => {
-              // Check if all items in look are currently active
               const isLookActive =
                 selectedItems.garment?.id === look.itemIds.garment &&
                 selectedItems.jewelry?.id === look.itemIds.jewelry &&
                 selectedItems.bag?.id === look.itemIds.bag &&
                 selectedItems.shoes?.id === look.itemIds.shoes;
+
+              const isBestForSilhouette = look.bestSilhouette === activeSilhouette;
 
               return (
                 <div
@@ -110,9 +160,16 @@ export function LookCarousel({
                 >
                   <div className="flex items-start justify-between gap-2 mb-2">
                     <div>
-                      <span className="text-[10px] uppercase font-mono tracking-wider text-gold bg-gold/10 px-2 py-0.5 rounded-full border border-gold/20">
-                        {look.occasion}
-                      </span>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-[10px] uppercase font-mono tracking-wider text-gold bg-gold/10 px-2 py-0.5 rounded-full border border-gold/20">
+                          {look.occasion}
+                        </span>
+                        {isBestForSilhouette && (
+                          <span className="text-[10px] font-mono text-emerald-300 bg-emerald-950/40 border border-emerald-500/30 px-2 py-0.5 rounded-full">
+                            ★ Ideal Silueta
+                          </span>
+                        )}
+                      </div>
                       <h4 className="font-serif text-base text-foreground mt-1.5 group-hover:text-gold transition-colors">
                         {look.title}
                       </h4>
@@ -147,6 +204,7 @@ export function LookCarousel({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
             {currentCategoryItems.map((item) => {
               const isSelected = selectedItems[item.category]?.id === item.id;
+              const isFavored = item.favoredSilhouettes.includes(activeSilhouette);
 
               return (
                 <div
@@ -159,11 +217,23 @@ export function LookCarousel({
                   }`}
                 >
                   <div>
-                    {/* Header: Tag & Color swatch */}
+                    {/* Header: Tag, Silhouette Match & Color swatch */}
                     <div className="flex items-center justify-between gap-2 mb-2">
-                      <span className="text-[10px] uppercase font-mono tracking-wider text-steel bg-canvas/60 px-2 py-0.5 rounded-full border border-whisper">
-                        {item.tag}
-                      </span>
+                      <div className="flex items-center gap-1 flex-wrap">
+                        <span className="text-[10px] uppercase font-mono tracking-wider text-steel bg-canvas/60 px-2 py-0.5 rounded-full border border-whisper">
+                          {item.tag}
+                        </span>
+                        {isFavored && (
+                          <span
+                            className="text-[10px] font-mono text-gold bg-gold/15 border border-gold/30 px-1.5 py-0.5 rounded-full flex items-center gap-0.5"
+                            title={item.silhouetteAdvice}
+                          >
+                            <Sparkles size={10} />
+                            <span>Para tu silueta</span>
+                          </span>
+                        )}
+                      </div>
+
                       <div className="flex items-center gap-1.5">
                         <span
                           className="w-3 h-3 rounded-full border border-whisper shadow-sm"
@@ -182,9 +252,17 @@ export function LookCarousel({
                     <h4 className="font-serif text-sm md:text-base text-foreground group-hover:text-gold transition-colors mb-1">
                       {item.name}
                     </h4>
-                    <p className="text-xs text-steel leading-relaxed line-clamp-2 mb-3">
+                    <p className="text-xs text-steel leading-relaxed line-clamp-2 mb-2">
                       {item.description}
                     </p>
+
+                    {/* Styling Advice for Active Silhouette */}
+                    {isFavored && (
+                      <div className="text-[11px] text-amber-200/80 bg-amber-950/20 border border-amber-500/20 p-1.5 rounded-lg mb-2 leading-tight flex items-start gap-1">
+                        <span className="text-gold shrink-0">✨</span>
+                        <span>{item.silhouetteAdvice}</span>
+                      </div>
+                    )}
 
                     {/* Fabric note */}
                     <div className="text-[11px] text-steel/80 mb-3 flex items-center gap-1 font-mono">
@@ -208,8 +286,8 @@ export function LookCarousel({
                           e.stopPropagation();
                           setInspectingItem(inspectingItem?.id === item.id ? null : item);
                         }}
-                        className="p-1.5 text-steel hover:text-gold hover:bg-white/5 rounded-lg transition-colors"
-                        title="Ver especificaciones técnicas"
+                        className="p-1.5 text-steel hover:text-gold hover:bg-white/5 rounded-lg transition-colors cursor-pointer"
+                        title="Ver especificaciones de taller"
                       >
                         <Info size={14} />
                       </button>

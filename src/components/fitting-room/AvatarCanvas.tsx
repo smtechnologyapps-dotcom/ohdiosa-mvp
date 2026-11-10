@@ -2,27 +2,41 @@
 
 import React, { useRef, useState, useEffect } from "react";
 import Image from "next/image";
-import { FittingItem, GarmentCategory } from "@/lib/fittingRoomData";
+import {
+  FittingItem,
+  GarmentCategory,
+  BodySilhouette,
+  SILHOUETTE_PROFILES,
+} from "@/lib/fittingRoomData";
 import {
   Sparkles,
   Rotate3d,
-  Maximize2,
-  ZoomIn,
+  Ruler,
   Camera,
   Layers,
   Sparkle,
-  Compass,
+  Sliders,
 } from "lucide-react";
 import { motion, useMotionValue, useSpring, useTransform, AnimatePresence } from "framer-motion";
 
 interface AvatarCanvasProps {
   selectedItems: { [key in GarmentCategory]?: FittingItem | null };
+  silhouette: BodySilhouette;
+  height: number;
+  size: string;
+  customFaceUrl: string | null;
+  onOpenScanner: () => void;
   onRemoveItem?: (category: GarmentCategory) => void;
   onSelectItemCategory?: (category: GarmentCategory) => void;
 }
 
 export function AvatarCanvas({
   selectedItems,
+  silhouette,
+  height,
+  size,
+  customFaceUrl,
+  onOpenScanner,
   onRemoveItem,
   onSelectItemCategory,
 }: AvatarCanvasProps) {
@@ -30,7 +44,6 @@ export function AvatarCanvas({
   const [cameraMode, setCameraMode] = useState<"full" | "waist" | "closeup">("full");
   const [isTurntableActive, setIsTurntableActive] = useState<boolean>(true);
   const [isHovered, setIsHovered] = useState<boolean>(false);
-  const [isInspectingMacro, setIsInspectingMacro] = useState<boolean>(false);
 
   // 3D Motion Coordinates with Springs for realistic fluid physical feel
   const mouseX = useMotionValue(0);
@@ -73,25 +86,19 @@ export function AvatarCanvas({
     }
   };
 
-  // Determine which photorealistic model image to display based on active garment/look
+  // --- MODELO FIJA CONSISTENTE ---
+  // Una única modelo editorial icónica de OHDIOSA. El vestuario y los accesorios cambian sobre ella.
   const activeGarment = selectedItems.garment;
-  let modelImageSrc = "/images/evening.jpg";
-  let lookTitle = "Vestido Asimétrico Noir & Gala";
-  let modelPoseName = "Pasarela Gala Nocturna";
 
-  if (activeGarment?.renderKey === "blazer_structured_gold") {
-    modelImageSrc = "/images/work.jpg";
-    lookTitle = "Blazer Estructurado Oro & Sastrería";
-    modelPoseName = "Penthouse Skyline Pose";
-  } else if (activeGarment?.renderKey === "dress_gala_champagne") {
-    modelImageSrc = "/images/casual.jpg";
-    lookTitle = "Seda Champagne & Palazzos";
-    modelPoseName = "Atrium Grand Palace";
-  } else if (activeGarment?.renderKey === "coat_cocoon_wool") {
-    modelImageSrc = "/images/hero_main.jpg";
-    lookTitle = "Alta Costura Escultural FW26";
-    modelPoseName = "Silueta Imperial Escultural";
-  }
+  // Obtenemos las proporciones físicas según la silueta seleccionada
+  const silhouetteData = SILHOUETTE_PROFILES[silhouette] || SILHOUETTE_PROFILES.hourglass;
+  const heightRatio = Math.max(0.92, Math.min(1.08, height / 170));
+
+  // Matriz de deformación sutil de proporciones corporales
+  const bodyMorphStyle = {
+    transform: `scale(${silhouetteData.proportions.hipScale * 0.98}, ${heightRatio})`,
+    transition: "transform 0.6s cubic-bezier(0.16, 1, 0.3, 1)",
+  };
 
   // Camera zoom offsets based on active view mode
   const cameraTransforms = {
@@ -99,6 +106,10 @@ export function AvatarCanvas({
     waist: { scale: 1.45, y: "-12%" },
     closeup: { scale: 1.95, y: "-26%" },
   };
+
+  // Imagen base fija de la modelo de pasarela para el vestido de gala
+  // Para garantizar un mismo avatar uniforme, usamos la silueta de alta costura de la modelo de pasarela fija
+  const baseModelSrc = activeGarment?.garmentOverlaySrc || "/images/evening.jpg";
 
   return (
     <div
@@ -114,13 +125,8 @@ export function AvatarCanvas({
         style={{ x: bgTranslateX }}
         className="absolute inset-0 bg-radial-vignette pointer-events-none z-0"
       >
-        {/* Ambient Dark Luxury Studio Backdrop */}
         <div className="absolute inset-0 bg-gradient-to-b from-[#09090B] via-[#121215] to-[#050507]" />
-
-        {/* Studio Golden Backlight */}
         <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[90%] h-[60%] rounded-full bg-gold/15 blur-[120px] pointer-events-none" />
-
-        {/* Architectural Runway Grid Lines */}
         <div className="absolute inset-0 opacity-[0.03] bg-[linear-gradient(to_right,#D4AF37_1px,transparent_1px),linear-gradient(to_bottom,#D4AF37_1px,transparent_1px)] bg-[size:4rem_4rem]" />
       </motion.div>
 
@@ -145,7 +151,7 @@ export function AvatarCanvas({
         }}
         className="relative w-full h-full flex items-center justify-center z-10"
       >
-        {/* Subtle Breathing & Swaying Animation */}
+        {/* Breathing & Swaying Animation */}
         <motion.div
           animate={{
             scale: [1, 1.012, 1],
@@ -158,10 +164,10 @@ export function AvatarCanvas({
           }}
           className="relative w-full h-full flex items-center justify-center"
         >
-          {/* Active Model Photograph with Camera Smooth Zoom */}
+          {/* Active Model Photograph with Camera Smooth Zoom & Body Morphing */}
           <AnimatePresence mode="wait">
             <motion.div
-              key={modelImageSrc + cameraMode}
+              key={baseModelSrc + cameraMode + silhouette}
               initial={{ opacity: 0, scale: 0.96, filter: "blur(6px)" }}
               animate={{
                 opacity: 1,
@@ -171,15 +177,29 @@ export function AvatarCanvas({
               }}
               exit={{ opacity: 0, scale: 1.02, filter: "blur(4px)" }}
               transition={{ duration: 0.65, ease: [0.16, 1, 0.3, 1] }}
+              style={bodyMorphStyle}
               className="relative w-[92%] h-[92%] max-w-[540px] rounded-2xl overflow-hidden shadow-2xl border border-whisper/40"
             >
               <Image
-                src={modelImageSrc}
-                alt={lookTitle}
+                src={baseModelSrc}
+                alt={activeGarment?.name || "Modelo OHDIOSA"}
                 fill
                 priority
                 className="object-cover object-top transition-transform duration-700 select-none"
               />
+
+              {/* Rostro Personalizado del Cliente (Si fue subido) */}
+              {customFaceUrl && (
+                <div className="absolute top-[8%] left-1/2 -translate-x-1/2 w-20 h-24 rounded-full overflow-hidden border border-gold/70 shadow-lg pointer-events-none z-15 backdrop-blur-[0.5px]">
+                  <Image
+                    src={customFaceUrl}
+                    alt="Rostro Personalizado"
+                    fill
+                    className="object-cover object-center"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
+                </div>
+              )}
 
               {/* Shadow vignette around edges for editorial depth */}
               <div className="absolute inset-0 bg-gradient-to-t from-canvas/90 via-transparent to-black/30 pointer-events-none" />
@@ -216,20 +236,29 @@ export function AvatarCanvas({
         </motion.div>
       </motion.div>
 
-      {/* 4. TOP HUD BAR: Real-time Camera & Runway Status */}
+      {/* 4. TOP HUD BAR: Real-time Camera & Calibration Trigger */}
       <div className="absolute top-4 inset-x-4 z-30 flex items-center justify-between pointer-events-none">
-        {/* Left Badge: Live Status */}
-        <div className="flex items-center gap-2 bg-canvas/80 backdrop-blur-md px-3.5 py-1.5 rounded-full border border-whisper text-xs font-mono tracking-wider text-gold shadow-lg pointer-events-auto">
-          <span className="w-2 h-2 rounded-full bg-gold animate-ping" />
-          <span className="font-serif tracking-widest uppercase">MODELO DE PASARELA EN VIVO</span>
-        </div>
+        {/* Left Badge: Active Silhouette & Scanner Trigger */}
+        <button
+          onClick={onOpenScanner}
+          className="flex items-center gap-2 bg-canvas/85 hover:bg-canvas border border-whisper hover:border-gold/60 backdrop-blur-md px-3.5 py-1.5 rounded-full text-xs font-mono text-gold shadow-lg pointer-events-auto transition-all cursor-pointer group"
+          title="Abrir Escáner de Silueta y Medidas"
+        >
+          <Ruler size={13} className="text-gold group-hover:rotate-12 transition-transform" />
+          <span className="font-serif tracking-wider uppercase">
+            {silhouetteData.name} • {height}cm ({size})
+          </span>
+          <span className="text-[10px] bg-gold/15 px-1.5 py-0.2 rounded text-gold font-sans font-semibold">
+            Calibrar
+          </span>
+        </button>
 
         {/* Right HUD: Camera Mode Buttons */}
         <div className="flex items-center gap-1 bg-surface/90 backdrop-blur-md p-1 rounded-xl border border-whisper shadow-lg pointer-events-auto">
           <button
             onClick={() => setCameraMode("full")}
             title="Cámara Cuerpo Entero"
-            className={`px-2.5 py-1 text-xs rounded-lg transition-all ${
+            className={`px-2.5 py-1 text-xs rounded-lg transition-all cursor-pointer ${
               cameraMode === "full"
                 ? "bg-gold text-canvas font-semibold shadow-sm"
                 : "text-steel hover:text-foreground"
@@ -240,7 +269,7 @@ export function AvatarCanvas({
           <button
             onClick={() => setCameraMode("waist")}
             title="Cámara Enfoque Medio (Cintura & Bolso)"
-            className={`px-2.5 py-1 text-xs rounded-lg transition-all ${
+            className={`px-2.5 py-1 text-xs rounded-lg transition-all cursor-pointer ${
               cameraMode === "waist"
                 ? "bg-gold text-canvas font-semibold shadow-sm"
                 : "text-steel hover:text-foreground"
@@ -251,7 +280,7 @@ export function AvatarCanvas({
           <button
             onClick={() => setCameraMode("closeup")}
             title="Primer Plano (Escote & Joyas)"
-            className={`px-2.5 py-1 text-xs rounded-lg transition-all ${
+            className={`px-2.5 py-1 text-xs rounded-lg transition-all cursor-pointer ${
               cameraMode === "closeup"
                 ? "bg-gold text-canvas font-semibold shadow-sm"
                 : "text-steel hover:text-foreground"
@@ -262,7 +291,7 @@ export function AvatarCanvas({
         </div>
       </div>
 
-      {/* 5. FLOATING ACCESSORY & DETAIL CALLOUT (Macro Inspection Popover) */}
+      {/* 5. FLOATING ACCESSORY & DETAIL CALLOUT */}
       <div className="absolute top-16 right-4 z-30 hidden sm:flex flex-col gap-2 pointer-events-auto">
         {selectedItems.jewelry && (
           <motion.div
@@ -327,7 +356,7 @@ export function AvatarCanvas({
                 />
                 <button
                   onClick={() => onSelectItemCategory?.(cat)}
-                  className="font-medium hover:text-gold transition-colors truncate max-w-[130px]"
+                  className="font-medium hover:text-gold transition-colors truncate max-w-[130px] cursor-pointer"
                 >
                   {item.name}
                 </button>
@@ -335,7 +364,7 @@ export function AvatarCanvas({
                 {onRemoveItem && (
                   <button
                     onClick={() => onRemoveItem(cat)}
-                    className="text-steel hover:text-red-400 text-xs ml-0.5 transition-colors"
+                    className="text-steel hover:text-red-400 text-xs ml-0.5 transition-colors cursor-pointer"
                     title={`Quitar ${item.name}`}
                   >
                     ✕
@@ -351,7 +380,7 @@ export function AvatarCanvas({
           <Rotate3d size={14} className={isTurntableActive ? "text-gold animate-spin" : "text-steel"} style={{ animationDuration: "6s" }} />
           <button
             onClick={() => setIsTurntableActive(!isTurntableActive)}
-            className="text-xs text-foreground hover:text-gold font-medium transition-colors"
+            className="text-xs text-foreground hover:text-gold font-medium transition-colors cursor-pointer"
           >
             {isTurntableActive ? "Rotación 3D Activa" : "Rotación Pausada"}
           </button>
