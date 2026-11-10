@@ -24,12 +24,19 @@ export function Navbar() {
           </button>
 
           {/* Desktop Nav - Left */}
-          <nav className="hidden md:flex items-center gap-8 text-sm font-sans tracking-wide">
+          <nav className="hidden md:flex items-center gap-7 text-sm font-sans tracking-wide">
             <Link href="/categories/clothes" className="text-steel hover:text-gold transition-colors uppercase">
               Colección
             </Link>
             <Link href="/categories/accessories" className="text-steel hover:text-gold transition-colors uppercase">
               Accesorios
+            </Link>
+            <Link 
+              href="/fitting-room" 
+              className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-gold/10 hover:bg-gold/20 text-gold border border-gold/30 uppercase text-xs font-semibold tracking-wider transition-all shadow-sm shadow-gold/5"
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-gold animate-pulse" />
+              <span>Probador 360°</span>
             </Link>
           </nav>
 
@@ -82,6 +89,12 @@ export function Navbar() {
             <nav className="flex flex-col gap-6 font-serif text-3xl">
               <Link href="/" onClick={() => setIsMenuOpen(false)} className="hover:text-gold transition-colors">
                 Inicio
+              </Link>
+              <Link href="/fitting-room" onClick={() => setIsMenuOpen(false)} className="text-gold flex items-center gap-2">
+                <span>Probador Virtual 360°</span>
+                <span className="text-xs font-mono font-normal uppercase px-2 py-0.5 rounded-full bg-gold/15 border border-gold/30">
+                  Nuevo
+                </span>
               </Link>
               <Link href="/categories/clothes" onClick={() => setIsMenuOpen(false)} className="hover:text-gold transition-colors">
                 Colección

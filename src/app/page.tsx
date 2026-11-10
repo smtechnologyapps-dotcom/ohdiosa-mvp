@@ -95,12 +95,21 @@ export default function Home() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 1, delay: 0.4 }}
+            className="flex flex-wrap items-center gap-4"
           >
             <Link 
               href="/categories/clothes" 
-              className="inline-flex items-center justify-center px-8 py-4 bg-gold text-canvas font-sans text-sm font-semibold tracking-wide hover:bg-gold-muted transition-colors"
+              className="inline-flex items-center justify-center px-8 py-4 bg-gold text-canvas font-sans text-sm font-semibold tracking-wide hover:bg-gold-muted transition-colors shadow-lg shadow-gold/10"
             >
               DESCUBRIR COLECCIÓN
+            </Link>
+
+            <Link 
+              href="/fitting-room" 
+              className="inline-flex items-center justify-center gap-2 px-7 py-4 bg-surface hover:bg-surface/80 text-foreground border border-whisper hover:border-gold/50 font-sans text-sm font-semibold tracking-wide transition-all shadow-md group"
+            >
+              <span className="w-2 h-2 rounded-full bg-gold animate-pulse" />
+              <span>PROBADOR VIRTUAL 360°</span>
             </Link>
           </motion.div>
         </div>
@@ -244,6 +253,75 @@ export default function Home() {
             {/* Empty space block to allow scrolling completely past the last item safely */}
             <div className="min-w-[12vw] h-1"></div>
           </motion.div>
+        </div>
+      </section>
+
+      {/* Interactive Virtual Fitting Room Promo Section */}
+      <section className="py-24 w-full bg-surface/40 border-t border-whisper relative overflow-hidden">
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-gold/10 via-transparent to-transparent pointer-events-none" />
+        
+        <div className="max-w-[1400px] mx-auto px-6 md:px-12 flex flex-col lg:flex-row items-center justify-between gap-12 relative z-10">
+          <div className="flex-1 space-y-6">
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-gold/10 border border-gold/30 text-gold text-xs font-mono tracking-widest uppercase">
+              <span className="w-2 h-2 rounded-full bg-gold animate-pulse" />
+              <span>Innovación Exclusiva OHDIOSA</span>
+            </div>
+
+            <h2 className="font-serif text-3xl md:text-5xl lg:text-6xl text-foreground tracking-tight leading-[1.1]">
+              Atelier Virtual &amp; <br />
+              <span className="italic text-gold font-light">Probador 360°</span>
+            </h2>
+
+            <p className="text-steel text-sm md:text-base leading-relaxed max-w-xl">
+              Descubre cómo luce cada combinación en silueta real antes de adquirirla. Nuestro probador interactivo te permite coordinar vestidos asimétricos, sastrería estructurada, joyería fina y bolsos de mano a 60 FPS con total fidelidad.
+            </p>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+              <div className="p-4 rounded-xl bg-canvas/60 border border-whisper/80">
+                <div className="text-gold font-serif text-lg mb-1">Silueta de Pasarela</div>
+                <p className="text-xs text-steel">Iluminación de estudio, halo champagne y física de tela en tiempo real.</p>
+              </div>
+              <div className="p-4 rounded-xl bg-canvas/60 border border-whisper/80">
+                <div className="text-gold font-serif text-lg mb-1">Look Completo Atelier</div>
+                <p className="text-xs text-steel">Descuento exclusivo al llevar el outfit y checkout directo por WhatsApp y Yappy.</p>
+              </div>
+            </div>
+
+            <div className="pt-4">
+              <Link
+                href="/fitting-room"
+                className="inline-flex items-center gap-3 px-8 py-4 bg-gold hover:bg-gold-muted text-canvas font-semibold text-sm tracking-wider uppercase transition-all shadow-xl shadow-gold/10"
+              >
+                <span>Probar Ahora en el Atelier</span>
+                <span className="text-base">→</span>
+              </Link>
+            </div>
+          </div>
+
+          {/* Right Visual Teaser */}
+          <div className="w-full lg:w-[480px] h-[520px] rounded-2xl bg-canvas border border-whisper p-6 relative flex flex-col justify-between overflow-hidden shadow-2xl">
+            <div className="flex items-center justify-between text-xs font-mono text-gold border-b border-whisper/80 pb-3">
+              <span>PREVIEW • FW26</span>
+              <span className="px-2 py-0.5 rounded bg-gold/15">MODO LIVE</span>
+            </div>
+
+            <div className="relative flex-1 flex items-center justify-center">
+              <div className="w-48 h-80 rounded-full bg-gold/5 blur-2xl absolute" />
+              <div className="text-center space-y-3 z-10">
+                <div className="font-serif text-2xl text-foreground">Vestido Asimétrico Noir</div>
+                <div className="text-xs font-mono text-steel">+ Collar Champagne Royal + Clutch Oro</div>
+                <div className="font-mono text-xl text-gold font-bold">$3,290 USD</div>
+                <div className="text-[11px] text-steel/70">Ahorro del 10% por Look Completo Aplicado</div>
+              </div>
+            </div>
+
+            <Link
+              href="/fitting-room"
+              className="w-full py-3 text-center bg-surface hover:bg-white/5 border border-whisper hover:border-gold/50 rounded-xl text-xs font-medium text-foreground transition-all"
+            >
+              Abrir Probador Completo
+            </Link>
+          </div>
         </div>
       </section>
     </div>
