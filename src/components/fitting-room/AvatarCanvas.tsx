@@ -1,8 +1,19 @@
 "use client";
 
-import React, { useRef, useEffect, useState } from "react";
+import React, { useRef, useState, useEffect } from "react";
+import Image from "next/image";
 import { FittingItem, GarmentCategory } from "@/lib/fittingRoomData";
-import { Sparkles, Eye, ZoomIn, ZoomOut, RotateCcw } from "lucide-react";
+import {
+  Sparkles,
+  Rotate3d,
+  Maximize2,
+  ZoomIn,
+  Camera,
+  Layers,
+  Sparkle,
+  Compass,
+} from "lucide-react";
+import { motion, useMotionValue, useSpring, useTransform, AnimatePresence } from "framer-motion";
 
 interface AvatarCanvasProps {
   selectedItems: { [key in GarmentCategory]?: FittingItem | null };
@@ -10,629 +21,343 @@ interface AvatarCanvasProps {
   onSelectItemCategory?: (category: GarmentCategory) => void;
 }
 
-export function AvatarCanvas({ selectedItems, onRemoveItem, onSelectItemCategory }: AvatarCanvasProps) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [zoomLevel, setZoomLevel] = useState<number>(1);
-  const [lightingMode, setLightingMode] = useState<"runway" | "studio" | "golden">("runway");
-  const [activeHotspot, setActiveHotspot] = useState<string | null>(null);
-  const [transitionProgress, setTransitionProgress] = useState<number>(1);
-  const animFrameRef = useRef<number | null>(null);
+export function AvatarCanvas({
+  selectedItems,
+  onRemoveItem,
+  onSelectItemCategory,
+}: AvatarCanvasProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [cameraMode, setCameraMode] = useState<"full" | "waist" | "closeup">("full");
+  const [isTurntableActive, setIsTurntableActive] = useState<boolean>(true);
+  const [isHovered, setIsHovered] = useState<boolean>(false);
+  const [isInspectingMacro, setIsInspectingMacro] = useState<boolean>(false);
 
-  // Trigger flash effect on item change
+  // 3D Motion Coordinates with Springs for realistic fluid physical feel
+  const mouseX = useMotionValue(0);
+  const mouseY = useMotionValue(0);
+
+  const springConfig = { damping: 22, stiffness: 120, mass: 0.6 };
+  const rotateY = useSpring(useTransform(mouseX, [-0.5, 0.5], [-16, 16]), springConfig);
+  const rotateX = useSpring(useTransform(mouseY, [-0.5, 0.5], [10, -10]), springConfig);
+  const bgTranslateX = useSpring(useTransform(mouseX, [-0.5, 0.5], [15, -15]), springConfig);
+  const spotlightX = useSpring(useTransform(mouseX, [-0.5, 0.5], [20, 80]), springConfig);
+  const spotlightY = useSpring(useTransform(mouseY, [-0.5, 0.5], [20, 80]), springConfig);
+
+  // Turntable automatic gentle breathing & swaying loop
   useEffect(() => {
-    setTransitionProgress(0);
-    const start = performance.now();
-    const duration = 450; // ms
+    if (!isTurntableActive || isHovered) return;
+    let t = 0;
+    const interval = setInterval(() => {
+      t += 0.035;
+      mouseX.set(Math.sin(t) * 0.35);
+      mouseY.set(Math.cos(t * 0.7) * 0.12);
+    }, 16);
+    return () => clearInterval(interval);
+  }, [isTurntableActive, isHovered, mouseX, mouseY]);
 
-    const animate = (time: number) => {
-      const elapsed = time - start;
-      const progress = Math.min(1, elapsed / duration);
-      setTransitionProgress(progress);
-      if (progress < 1) {
-        requestAnimationFrame(animate);
-      }
-    };
-    requestAnimationFrame(animate);
-  }, [
-    selectedItems.garment?.id,
-    selectedItems.jewelry?.id,
-    selectedItems.bag?.id,
-    selectedItems.shoes?.id,
-  ]);
+  // Handle interactive 3D pointer movement
+  const handlePointerMove = (e: React.PointerEvent) => {
+    if (!containerRef.current) return;
+    const rect = containerRef.current.getBoundingClientRect();
+    const x = (e.clientX - rect.left) / rect.width - 0.5;
+    const y = (e.clientY - rect.top) / rect.height - 0.5;
+    mouseX.set(x);
+    mouseY.set(y);
+  };
 
-  // Main Canvas Rendering Loop
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d", { alpha: false });
-    if (!ctx) return;
+  const handlePointerLeave = () => {
+    setIsHovered(false);
+    if (!isTurntableActive) {
+      mouseX.set(0);
+      mouseY.set(0);
+    }
+  };
 
-    let particleTime = 0;
+  // Determine which photorealistic model image to display based on active garment/look
+  const activeGarment = selectedItems.garment;
+  let modelImageSrc = "/images/evening.jpg";
+  let lookTitle = "Vestido Asimétrico Noir & Gala";
+  let modelPoseName = "Pasarela Gala Nocturna";
 
-    const render = () => {
-      particleTime += 0.02;
+  if (activeGarment?.renderKey === "blazer_structured_gold") {
+    modelImageSrc = "/images/work.jpg";
+    lookTitle = "Blazer Estructurado Oro & Sastrería";
+    modelPoseName = "Penthouse Skyline Pose";
+  } else if (activeGarment?.renderKey === "dress_gala_champagne") {
+    modelImageSrc = "/images/casual.jpg";
+    lookTitle = "Seda Champagne & Palazzos";
+    modelPoseName = "Atrium Grand Palace";
+  } else if (activeGarment?.renderKey === "coat_cocoon_wool") {
+    modelImageSrc = "/images/hero_main.jpg";
+    lookTitle = "Alta Costura Escultural FW26";
+    modelPoseName = "Silueta Imperial Escultural";
+  }
 
-      // Handle High-DPI screens
-      const dpr = typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1;
-      const width = canvas.clientWidth;
-      const height = canvas.clientHeight;
-
-      if (canvas.width !== width * dpr || canvas.height !== height * dpr) {
-        canvas.width = width * dpr;
-        canvas.height = height * dpr;
-      }
-
-      ctx.save();
-      ctx.scale(dpr, dpr);
-
-      // --- 1. FONDO DE ESTUDIO / PASARELA DE LUJO ---
-      const bgGrad = ctx.createLinearGradient(0, 0, 0, height);
-      if (lightingMode === "runway") {
-        bgGrad.addColorStop(0, "#08080A");
-        bgGrad.addColorStop(0.5, "#121215");
-        bgGrad.addColorStop(1, "#09090B");
-      } else if (lightingMode === "golden") {
-        bgGrad.addColorStop(0, "#0F0D08");
-        bgGrad.addColorStop(0.6, "#1A160F");
-        bgGrad.addColorStop(1, "#0A0906");
-      } else {
-        bgGrad.addColorStop(0, "#141416");
-        bgGrad.addColorStop(1, "#0C0C0E");
-      }
-      ctx.fillStyle = bgGrad;
-      ctx.fillRect(0, 0, width, height);
-
-      // Halo de luz cenital / Backlight
-      const centerX = width / 2;
-      const avatarCenterY = height * 0.48;
-      const radialHalo = ctx.createRadialGradient(
-        centerX,
-        avatarCenterY - 40,
-        20,
-        centerX,
-        avatarCenterY,
-        Math.min(width, height) * 0.55
-      );
-      if (lightingMode === "golden") {
-        radialHalo.addColorStop(0, "rgba(212, 175, 55, 0.22)");
-        radialHalo.addColorStop(0.5, "rgba(212, 175, 55, 0.06)");
-        radialHalo.addColorStop(1, "rgba(212, 175, 55, 0)");
-      } else {
-        radialHalo.addColorStop(0, "rgba(240, 220, 160, 0.16)");
-        radialHalo.addColorStop(0.5, "rgba(212, 175, 55, 0.04)");
-        radialHalo.addColorStop(1, "rgba(0, 0, 0, 0)");
-      }
-      ctx.fillStyle = radialHalo;
-      ctx.fillRect(0, 0, width, height);
-
-      // Líneas de pasarela / Escenario arquitectónico
-      ctx.strokeStyle = "rgba(212, 175, 55, 0.08)";
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(centerX - width * 0.4, height * 0.92);
-      ctx.lineTo(centerX + width * 0.4, height * 0.92);
-      ctx.stroke();
-
-      // Sombra de contacto en el piso
-      ctx.save();
-      const shadowGrad = ctx.createRadialGradient(
-        centerX,
-        height * 0.88,
-        5,
-        centerX,
-        height * 0.88,
-        width * 0.3
-      );
-      shadowGrad.addColorStop(0, "rgba(0, 0, 0, 0.7)");
-      shadowGrad.addColorStop(0.6, "rgba(0, 0, 0, 0.25)");
-      shadowGrad.addColorStop(1, "rgba(0, 0, 0, 0)");
-      ctx.fillStyle = shadowGrad;
-      ctx.scale(1, 0.25);
-      ctx.beginPath();
-      ctx.arc(centerX, (height * 0.88) / 0.25, width * 0.28, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.restore();
-
-      // --- 2. DIBUJO DEL AVATAR / SILUETA DE ALTA COSTURA ---
-      ctx.save();
-      // Aplicar zoom centrado si está activo
-      if (zoomLevel !== 1) {
-        ctx.translate(centerX, avatarCenterY);
-        ctx.scale(zoomLevel, zoomLevel);
-        ctx.translate(-centerX, -avatarCenterY);
-      }
-
-      // Proporciones del maniquí editorial (Head -> Torso -> Hips -> Legs)
-      const scaleFactor = Math.min(width / 360, height / 640);
-      const headY = height * 0.14;
-      const headRadius = 22 * scaleFactor;
-      const neckY = headY + headRadius * 1.5;
-      const shoulderY = neckY + 16 * scaleFactor;
-      const bustY = shoulderY + 36 * scaleFactor;
-      const waistY = bustY + 44 * scaleFactor;
-      const hipY = waistY + 48 * scaleFactor;
-      const kneeY = hipY + 105 * scaleFactor;
-      const ankleY = kneeY + 115 * scaleFactor;
-
-      // Color base del maniquí (bronce editorial pulido)
-      const skinBase = "#DDBA98";
-      const skinShade = "#BA9672";
-      const skinHighlight = "#F5DCC4";
-
-      // Cabeza & Peinado Editorial
-      // Pelo Chignon Alto Noir
-      ctx.fillStyle = "#141416";
-      ctx.beginPath();
-      ctx.arc(centerX, headY - 14 * scaleFactor, 18 * scaleFactor, 0, Math.PI * 2);
-      ctx.fill();
-
-      // Rostro
-      const faceGrad = ctx.createLinearGradient(
-        centerX - headRadius,
-        headY,
-        centerX + headRadius,
-        headY
-      );
-      faceGrad.addColorStop(0, skinShade);
-      faceGrad.addColorStop(0.45, skinBase);
-      faceGrad.addColorStop(1, skinHighlight);
-
-      ctx.fillStyle = faceGrad;
-      ctx.beginPath();
-      ctx.ellipse(centerX, headY, headRadius * 0.72, headRadius * 1.1, 0, 0, Math.PI * 2);
-      ctx.fill();
-
-      // Cuello estilizado
-      ctx.fillStyle = faceGrad;
-      ctx.beginPath();
-      ctx.moveTo(centerX - 8 * scaleFactor, headY + headRadius * 0.8);
-      ctx.lineTo(centerX + 8 * scaleFactor, headY + headRadius * 0.8);
-      ctx.lineTo(centerX + 12 * scaleFactor, shoulderY);
-      ctx.lineTo(centerX - 12 * scaleFactor, shoulderY);
-      ctx.closePath();
-      ctx.fill();
-
-      // Brazos y silueta base anatómica
-      // Brazo Izquierdo (hacia abajo, relajado)
-      ctx.strokeStyle = skinBase;
-      ctx.lineWidth = 11 * scaleFactor;
-      ctx.lineCap = "round";
-      ctx.beginPath();
-      ctx.moveTo(centerX - 42 * scaleFactor, shoulderY + 4 * scaleFactor);
-      ctx.lineTo(centerX - 52 * scaleFactor, waistY + 10 * scaleFactor);
-      ctx.lineTo(centerX - 56 * scaleFactor, hipY + 45 * scaleFactor);
-      ctx.stroke();
-
-      // Brazo Derecho (apoyado sutilmente en cadera / portando bolso)
-      ctx.beginPath();
-      ctx.moveTo(centerX + 42 * scaleFactor, shoulderY + 4 * scaleFactor);
-      ctx.lineTo(centerX + 54 * scaleFactor, waistY + 12 * scaleFactor);
-      ctx.lineTo(centerX + 48 * scaleFactor, hipY + 36 * scaleFactor);
-      ctx.stroke();
-
-      // Piernas (postura de pasarela esbelta)
-      ctx.lineWidth = 14 * scaleFactor;
-      // Pierna Izquierda
-      ctx.beginPath();
-      ctx.moveTo(centerX - 16 * scaleFactor, hipY);
-      ctx.lineTo(centerX - 18 * scaleFactor, kneeY);
-      ctx.lineTo(centerX - 20 * scaleFactor, ankleY);
-      ctx.stroke();
-
-      // Pierna Derecha
-      ctx.beginPath();
-      ctx.moveTo(centerX + 16 * scaleFactor, hipY);
-      ctx.lineTo(centerX + 15 * scaleFactor, kneeY);
-      ctx.lineTo(centerX + 14 * scaleFactor, ankleY);
-      ctx.stroke();
-
-      // --- 3. DIBUJO DE PRENDAS DINÁMICAS (PAINTER'S ORDER) ---
-
-      // A. CALZADO (SHOES)
-      const activeShoe = selectedItems.shoes;
-      if (activeShoe) {
-        if (activeShoe.renderKey === "boots_overknee_noir") {
-          // Botas altas de cuero sobre la rodilla
-          ctx.fillStyle = "#161618";
-          ctx.beginPath();
-          // Bota izquierda
-          ctx.rect(centerX - 27 * scaleFactor, kneeY - 20 * scaleFactor, 18 * scaleFactor, 138 * scaleFactor);
-          // Bota derecha
-          ctx.rect(centerX + 5 * scaleFactor, kneeY - 20 * scaleFactor, 18 * scaleFactor, 138 * scaleFactor);
-          ctx.fill();
-
-          // Tacón escultórico
-          ctx.fillStyle = "#D4AF37";
-          ctx.fillRect(centerX - 28 * scaleFactor, ankleY + 2 * scaleFactor, 6 * scaleFactor, 16 * scaleFactor);
-          ctx.fillRect(centerX + 4 * scaleFactor, ankleY + 2 * scaleFactor, 6 * scaleFactor, 16 * scaleFactor);
-        } else if (activeShoe.renderKey === "sandals_minimal_gold") {
-          // Sandalias minimalistas champagne con tiras doradas
-          ctx.strokeStyle = "#E5C158";
-          ctx.lineWidth = 2.5 * scaleFactor;
-          // Tiras tobillo izq
-          ctx.beginPath();
-          ctx.arc(centerX - 20 * scaleFactor, ankleY - 2 * scaleFactor, 7 * scaleFactor, 0, Math.PI);
-          ctx.stroke();
-          // Tiras tobillo der
-          ctx.beginPath();
-          ctx.arc(centerX + 14 * scaleFactor, ankleY - 2 * scaleFactor, 7 * scaleFactor, 0, Math.PI);
-          ctx.stroke();
-          // Tacón fino oro
-          ctx.fillStyle = "#D4AF37";
-          ctx.fillRect(centerX - 22 * scaleFactor, ankleY, 2.5 * scaleFactor, 18 * scaleFactor);
-          ctx.fillRect(centerX + 12 * scaleFactor, ankleY, 2.5 * scaleFactor, 18 * scaleFactor);
-        } else {
-          // Stilettos Asimétricos Noir (s1 default)
-          ctx.fillStyle = "#0A0A0C";
-          // Zapato izq
-          ctx.beginPath();
-          ctx.ellipse(centerX - 20 * scaleFactor, ankleY + 8 * scaleFactor, 10 * scaleFactor, 6 * scaleFactor, -0.2, 0, Math.PI * 2);
-          ctx.fill();
-          // Zapato der
-          ctx.beginPath();
-          ctx.ellipse(centerX + 15 * scaleFactor, ankleY + 8 * scaleFactor, 10 * scaleFactor, 6 * scaleFactor, 0.2, 0, Math.PI * 2);
-          ctx.fill();
-          // Tacón de aguja dorado
-          ctx.fillStyle = "#D4AF37";
-          ctx.fillRect(centerX - 24 * scaleFactor, ankleY + 6 * scaleFactor, 2.5 * scaleFactor, 15 * scaleFactor);
-          ctx.fillRect(centerX + 11 * scaleFactor, ankleY + 6 * scaleFactor, 2.5 * scaleFactor, 15 * scaleFactor);
-        }
-      }
-
-      // B. PRENDA PRINCIPAL / ALTA COSTURA (GARMENTS)
-      const activeGarment = selectedItems.garment;
-      if (activeGarment) {
-        if (activeGarment.renderKey === "dress_asymmetric_noir") {
-          // Vestido Asimétrico Noir: hombro caído, abertura escultural
-          const dressGrad = ctx.createLinearGradient(
-            centerX - 50 * scaleFactor,
-            shoulderY,
-            centerX + 50 * scaleFactor,
-            kneeY + 80 * scaleFactor
-          );
-          dressGrad.addColorStop(0, "#19191D");
-          dressGrad.addColorStop(0.5, "#0F0F12");
-          dressGrad.addColorStop(1, "#08080A");
-
-          ctx.fillStyle = dressGrad;
-          ctx.beginPath();
-          // Hombro izquierdo cubierto
-          ctx.moveTo(centerX - 42 * scaleFactor, shoulderY + 4 * scaleFactor);
-          // Escote asimétrico pasando bajo el hombro derecho
-          ctx.quadraticCurveTo(centerX, bustY - 6 * scaleFactor, centerX + 34 * scaleFactor, bustY + 8 * scaleFactor);
-          // Cintura entallada
-          ctx.lineTo(centerX + 26 * scaleFactor, waistY);
-          ctx.lineTo(centerX + 32 * scaleFactor, hipY);
-          // Caída larga con abertura de pierna izquierda
-          ctx.lineTo(centerX + 40 * scaleFactor, kneeY + 90 * scaleFactor);
-          ctx.lineTo(centerX - 4 * scaleFactor, kneeY + 92 * scaleFactor);
-          // Abertura de alta costura descubriendo pierna izq
-          ctx.lineTo(centerX - 8 * scaleFactor, hipY + 20 * scaleFactor);
-          ctx.lineTo(centerX - 30 * scaleFactor, waistY);
-          ctx.closePath();
-          ctx.fill();
-
-          // Ribete sutil dorado en el escote asimétrico
-          ctx.strokeStyle = "rgba(212, 175, 55, 0.85)";
-          ctx.lineWidth = 2 * scaleFactor;
-          ctx.beginPath();
-          ctx.moveTo(centerX - 42 * scaleFactor, shoulderY + 4 * scaleFactor);
-          ctx.quadraticCurveTo(centerX, bustY - 6 * scaleFactor, centerX + 34 * scaleFactor, bustY + 8 * scaleFactor);
-          ctx.stroke();
-
-        } else if (activeGarment.renderKey === "blazer_structured_gold") {
-          // Blazer Estructurado Oro con pantalones rectos
-          // Pantalón sastre negro
-          ctx.fillStyle = "#121214";
-          ctx.beginPath();
-          ctx.moveTo(centerX - 28 * scaleFactor, waistY + 15 * scaleFactor);
-          ctx.lineTo(centerX + 28 * scaleFactor, waistY + 15 * scaleFactor);
-          ctx.lineTo(centerX + 26 * scaleFactor, ankleY - 4 * scaleFactor);
-          ctx.lineTo(centerX + 3 * scaleFactor, ankleY - 4 * scaleFactor);
-          ctx.lineTo(centerX, hipY + 15 * scaleFactor);
-          ctx.lineTo(centerX - 3 * scaleFactor, ankleY - 4 * scaleFactor);
-          ctx.lineTo(centerX - 26 * scaleFactor, ankleY - 4 * scaleFactor);
-          ctx.closePath();
-          ctx.fill();
-
-          // Blazer estructurado con solapa champagne
-          ctx.fillStyle = "#1E1E22";
-          ctx.beginPath();
-          // Hombros pagoda imponentes
-          ctx.moveTo(centerX - 48 * scaleFactor, shoulderY - 3 * scaleFactor);
-          ctx.lineTo(centerX - 12 * scaleFactor, neckY + 4 * scaleFactor);
-          ctx.lineTo(centerX + 12 * scaleFactor, neckY + 4 * scaleFactor);
-          ctx.lineTo(centerX + 48 * scaleFactor, shoulderY - 3 * scaleFactor);
-          ctx.lineTo(centerX + 38 * scaleFactor, waistY + 28 * scaleFactor);
-          ctx.lineTo(centerX - 38 * scaleFactor, waistY + 28 * scaleFactor);
-          ctx.closePath();
-          ctx.fill();
-
-          // Solapa de satén dorado en 'V'
-          ctx.fillStyle = "#D4AF37";
-          ctx.beginPath();
-          ctx.moveTo(centerX - 12 * scaleFactor, neckY + 4 * scaleFactor);
-          ctx.lineTo(centerX, waistY + 10 * scaleFactor);
-          ctx.lineTo(centerX + 12 * scaleFactor, neckY + 4 * scaleFactor);
-          ctx.lineTo(centerX + 24 * scaleFactor, bustY);
-          ctx.lineTo(centerX, waistY + 12 * scaleFactor);
-          ctx.lineTo(centerX - 24 * scaleFactor, bustY);
-          ctx.closePath();
-          ctx.fill();
-
-          // Botones de latón dorado
-          ctx.fillStyle = "#FEF08A";
-          ctx.beginPath();
-          ctx.arc(centerX + 5 * scaleFactor, waistY + 16 * scaleFactor, 3 * scaleFactor, 0, Math.PI * 2);
-          ctx.arc(centerX + 5 * scaleFactor, waistY + 24 * scaleFactor, 3 * scaleFactor, 0, Math.PI * 2);
-          ctx.fill();
-
-        } else if (activeGarment.renderKey === "dress_gala_champagne") {
-          // Vestido Gala Seda Champagne con brillo fluido
-          const champGrad = ctx.createLinearGradient(
-            centerX - 40 * scaleFactor,
-            shoulderY,
-            centerX + 40 * scaleFactor,
-            ankleY
-          );
-          champGrad.addColorStop(0, "#E6C87C");
-          champGrad.addColorStop(0.3, "#FFF5D6");
-          champGrad.addColorStop(0.7, "#C59B3F");
-          champGrad.addColorStop(1, "#997322");
-
-          ctx.fillStyle = champGrad;
-          ctx.beginPath();
-          ctx.moveTo(centerX - 36 * scaleFactor, shoulderY + 8 * scaleFactor);
-          ctx.lineTo(centerX + 36 * scaleFactor, shoulderY + 8 * scaleFactor);
-          ctx.lineTo(centerX + 26 * scaleFactor, waistY);
-          ctx.lineTo(centerX + 34 * scaleFactor, hipY);
-          ctx.lineTo(centerX + 24 * scaleFactor, kneeY);
-          // Sirena con cola amplia
-          ctx.lineTo(centerX + 55 * scaleFactor, ankleY + 12 * scaleFactor);
-          ctx.lineTo(centerX - 55 * scaleFactor, ankleY + 12 * scaleFactor);
-          ctx.lineTo(centerX - 24 * scaleFactor, kneeY);
-          ctx.lineTo(centerX - 34 * scaleFactor, hipY);
-          ctx.lineTo(centerX - 26 * scaleFactor, waistY);
-          ctx.closePath();
-          ctx.fill();
-
-          // Pliegues y reflejos de luz
-          ctx.strokeStyle = "rgba(255, 255, 255, 0.45)";
-          ctx.lineWidth = 1.5 * scaleFactor;
-          ctx.beginPath();
-          ctx.moveTo(centerX - 10 * scaleFactor, waistY);
-          ctx.quadraticCurveTo(centerX + 5 * scaleFactor, kneeY, centerX - 18 * scaleFactor, ankleY);
-          ctx.stroke();
-
-        } else if (activeGarment.renderKey === "coat_cocoon_wool") {
-          // Abrigo Cocoon Lana Charcoal
-          ctx.fillStyle = "#27272A";
-          ctx.beginPath();
-          // Silueta oversized envolvente
-          ctx.moveTo(centerX - 52 * scaleFactor, shoulderY - 4 * scaleFactor);
-          ctx.lineTo(centerX + 52 * scaleFactor, shoulderY - 4 * scaleFactor);
-          ctx.lineTo(centerX + 58 * scaleFactor, waistY + 10 * scaleFactor);
-          ctx.lineTo(centerX + 45 * scaleFactor, kneeY + 30 * scaleFactor);
-          ctx.lineTo(centerX - 45 * scaleFactor, kneeY + 30 * scaleFactor);
-          ctx.lineTo(centerX - 58 * scaleFactor, waistY + 10 * scaleFactor);
-          ctx.closePath();
-          ctx.fill();
-
-          // Cinturón ceñido con hebilla dorada
-          ctx.fillStyle = "#18181B";
-          ctx.fillRect(centerX - 35 * scaleFactor, waistY + 8 * scaleFactor, 70 * scaleFactor, 10 * scaleFactor);
-          ctx.fillStyle = "#D4AF37";
-          ctx.fillRect(centerX - 7 * scaleFactor, waistY + 6 * scaleFactor, 14 * scaleFactor, 14 * scaleFactor);
-        }
-      }
-
-      // C. JOYERÍA & ACCESORIOS (JEWELRY)
-      const activeJewelry = selectedItems.jewelry;
-      if (activeJewelry) {
-        if (activeJewelry.renderKey === "necklace_champagne") {
-          // Gargantilla Royal que descansa en la clavícula
-          ctx.strokeStyle = "#D4AF37";
-          ctx.lineWidth = 4 * scaleFactor;
-          ctx.beginPath();
-          ctx.arc(centerX, shoulderY - 2 * scaleFactor, 16 * scaleFactor, 0.2, Math.PI - 0.2);
-          ctx.stroke();
-
-          // Destello central
-          ctx.fillStyle = "#FFF";
-          ctx.beginPath();
-          ctx.arc(centerX, shoulderY + 14 * scaleFactor, 3 * scaleFactor, 0, Math.PI * 2);
-          ctx.fill();
-        } else if (activeJewelry.renderKey === "cuff_geometric_gold") {
-          // Brazalete geométrico en muñeca derecha
-          ctx.fillStyle = "#E5C158";
-          ctx.fillRect(centerX + 44 * scaleFactor, hipY + 28 * scaleFactor, 12 * scaleFactor, 10 * scaleFactor);
-        } else if (activeJewelry.renderKey === "sunglasses_dark_noir") {
-          // Gafas oscuras de acetato en el rostro
-          ctx.fillStyle = "#09090B";
-          ctx.fillRect(centerX - 16 * scaleFactor, headY - 4 * scaleFactor, 32 * scaleFactor, 9 * scaleFactor);
-          // Puente y cristales
-          ctx.fillStyle = "#27272A";
-          ctx.fillRect(centerX - 14 * scaleFactor, headY - 2 * scaleFactor, 11 * scaleFactor, 6 * scaleFactor);
-          ctx.fillRect(centerX + 3 * scaleFactor, headY - 2 * scaleFactor, 11 * scaleFactor, 6 * scaleFactor);
-        }
-      }
-
-      // D. BOLSOS (BAGS)
-      const activeBag = selectedItems.bag;
-      if (activeBag) {
-        if (activeBag.renderKey === "clutch_gold_sculptural") {
-          // Clutch facetado sostenido en la mano derecha
-          ctx.fillStyle = "#D4AF37";
-          ctx.beginPath();
-          ctx.moveTo(centerX + 44 * scaleFactor, hipY + 38 * scaleFactor);
-          ctx.lineTo(centerX + 64 * scaleFactor, hipY + 34 * scaleFactor);
-          ctx.lineTo(centerX + 66 * scaleFactor, hipY + 54 * scaleFactor);
-          ctx.lineTo(centerX + 46 * scaleFactor, hipY + 58 * scaleFactor);
-          ctx.closePath();
-          ctx.fill();
-          // Faceta brillante
-          ctx.fillStyle = "#FEF08A";
-          ctx.beginPath();
-          ctx.moveTo(centerX + 46 * scaleFactor, hipY + 38 * scaleFactor);
-          ctx.lineTo(centerX + 58 * scaleFactor, hipY + 36 * scaleFactor);
-          ctx.lineTo(centerX + 50 * scaleFactor, hipY + 46 * scaleFactor);
-          ctx.closePath();
-          ctx.fill();
-        } else if (activeBag.renderKey === "tote_structured_black") {
-          // Bolso Tote Box de cuero negro con asas doradas
-          ctx.fillStyle = "#18181B";
-          ctx.beginPath();
-          ctx.rect(centerX - 72 * scaleFactor, hipY + 30 * scaleFactor, 28 * scaleFactor, 32 * scaleFactor);
-          ctx.fill();
-          // Herrajes de oro
-          ctx.strokeStyle = "#D4AF37";
-          ctx.lineWidth = 2 * scaleFactor;
-          ctx.beginPath();
-          ctx.arc(centerX - 58 * scaleFactor, hipY + 28 * scaleFactor, 7 * scaleFactor, Math.PI, 0);
-          ctx.stroke();
-        }
-      }
-
-      // --- 4. EFECTOS ESPECIALES DE DESTELLO Y PARTÍCULAS DORADAS ---
-      if (lightingMode === "golden" || transitionProgress < 1) {
-        const particleCount = transitionProgress < 1 ? 16 : 8;
-        for (let i = 0; i < particleCount; i++) {
-          const px = centerX + Math.sin(particleTime + i * 1.3) * (70 * scaleFactor);
-          const py = shoulderY + ((particleTime * 25 + i * 45) % (ankleY - shoulderY));
-          const pSize = 1.8 + Math.sin(particleTime * 2 + i) * 1.2;
-
-          ctx.fillStyle = `rgba(212, 175, 55, ${0.4 + Math.sin(particleTime * 3 + i) * 0.3})`;
-          ctx.beginPath();
-          ctx.arc(px, py, pSize, 0, Math.PI * 2);
-          ctx.fill();
-        }
-      }
-
-      // Flash de cambio de atuendo
-      if (transitionProgress < 1) {
-        const flashAlpha = (1 - transitionProgress) * 0.28;
-        ctx.fillStyle = `rgba(212, 175, 55, ${flashAlpha})`;
-        ctx.fillRect(0, 0, width, height);
-      }
-
-      ctx.restore(); // restore zoom & translations
-
-      animFrameRef.current = requestAnimationFrame(render);
-    };
-
-    render();
-
-    return () => {
-      if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
-    };
-  }, [selectedItems, zoomLevel, lightingMode, transitionProgress]);
+  // Camera zoom offsets based on active view mode
+  const cameraTransforms = {
+    full: { scale: 1.05, y: "0%" },
+    waist: { scale: 1.45, y: "-12%" },
+    closeup: { scale: 1.95, y: "-26%" },
+  };
 
   return (
-    <div className="relative w-full h-full min-h-[520px] md:min-h-[640px] flex items-center justify-center bg-canvas rounded-2xl overflow-hidden border border-whisper shadow-2xl">
-      {/* Canvas Element */}
-      <canvas
-        ref={canvasRef}
-        className="w-full h-full block cursor-crosshair touch-none"
+    <div
+      ref={containerRef}
+      onPointerMove={handlePointerMove}
+      onPointerEnter={() => setIsHovered(true)}
+      onPointerLeave={handlePointerLeave}
+      className="relative w-full h-full min-h-[560px] lg:min-h-[720px] rounded-3xl overflow-hidden bg-canvas border border-whisper shadow-2xl flex items-center justify-center select-none perspective-[1400px] cursor-grab active:cursor-grabbing"
+      style={{ perspective: 1400 }}
+    >
+      {/* 1. RUNWAY BACKGROUND DEPTH LAYER */}
+      <motion.div
+        style={{ x: bgTranslateX }}
+        className="absolute inset-0 bg-radial-vignette pointer-events-none z-0"
+      >
+        {/* Ambient Dark Luxury Studio Backdrop */}
+        <div className="absolute inset-0 bg-gradient-to-b from-[#09090B] via-[#121215] to-[#050507]" />
+
+        {/* Studio Golden Backlight */}
+        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[90%] h-[60%] rounded-full bg-gold/15 blur-[120px] pointer-events-none" />
+
+        {/* Architectural Runway Grid Lines */}
+        <div className="absolute inset-0 opacity-[0.03] bg-[linear-gradient(to_right,#D4AF37_1px,transparent_1px),linear-gradient(to_bottom,#D4AF37_1px,transparent_1px)] bg-[size:4rem_4rem]" />
+      </motion.div>
+
+      {/* 2. DYNAMIC SPECULAR LIGHTING SPOTLIGHT */}
+      <motion.div
+        className="absolute inset-0 pointer-events-none z-20 mix-blend-overlay opacity-60 transition-opacity"
+        style={{
+          background: useTransform(
+            [spotlightX, spotlightY],
+            ([x, y]) =>
+              `radial-gradient(circle 380px at ${x}% ${y}%, rgba(254, 240, 138, 0.45), rgba(212, 175, 55, 0.15), transparent 70%)`
+          ),
+        }}
       />
 
-      {/* Top Overlay Badge */}
-      <div className="absolute top-4 left-4 z-20 flex items-center gap-2 bg-canvas/80 backdrop-blur-md px-3 py-1.5 rounded-full border border-whisper text-xs font-serif tracking-wider text-gold">
-        <Sparkles size={14} className="text-gold animate-pulse" />
-        <span>ATELIER 360° • EDICIÓN ALTA COSTURA</span>
-      </div>
-
-      {/* Lighting Control Bar (Top Right) */}
-      <div className="absolute top-4 right-4 z-20 flex items-center gap-1 bg-surface/85 backdrop-blur-md p-1 rounded-xl border border-whisper">
-        <button
-          onClick={() => setLightingMode("runway")}
-          title="Modo Pasarela Nocturna"
-          className={`px-2.5 py-1 text-xs rounded-lg transition-all ${
-            lightingMode === "runway"
-              ? "bg-gold text-canvas font-semibold shadow-sm"
-              : "text-steel hover:text-foreground"
-          }`}
+      {/* 3. 3D ROTATABLE RUNWAY MODEL CONTAINER */}
+      <motion.div
+        style={{
+          rotateY,
+          rotateX,
+          transformStyle: "preserve-3d",
+        }}
+        className="relative w-full h-full flex items-center justify-center z-10"
+      >
+        {/* Subtle Breathing & Swaying Animation */}
+        <motion.div
+          animate={{
+            scale: [1, 1.012, 1],
+            y: [0, -3, 0],
+          }}
+          transition={{
+            duration: 4.8,
+            repeat: Infinity,
+            ease: "easeInOut",
+          }}
+          className="relative w-full h-full flex items-center justify-center"
         >
-          Pasarela
-        </button>
-        <button
-          onClick={() => setLightingMode("golden")}
-          title="Modo Halo Champagne"
-          className={`px-2.5 py-1 text-xs rounded-lg transition-all ${
-            lightingMode === "golden"
-              ? "bg-gold text-canvas font-semibold shadow-sm"
-              : "text-steel hover:text-foreground"
-          }`}
-        >
-          Champagne
-        </button>
-        <button
-          onClick={() => setLightingMode("studio")}
-          title="Modo Estudio Editorial"
-          className={`px-2.5 py-1 text-xs rounded-lg transition-all ${
-            lightingMode === "studio"
-              ? "bg-gold text-canvas font-semibold shadow-sm"
-              : "text-steel hover:text-foreground"
-          }`}
-        >
-          Estudio
-        </button>
-      </div>
-
-      {/* Floating Active Pieces Badges (Interactive Hotspots) */}
-      <div className="absolute bottom-4 left-4 right-4 z-20 flex flex-wrap gap-1.5 justify-center md:justify-start pointer-events-auto">
-        {(["garment", "jewelry", "bag", "shoes"] as GarmentCategory[]).map((cat) => {
-          const item = selectedItems[cat];
-          if (!item) return null;
-          return (
-            <div
-              key={cat}
-              className="group flex items-center gap-2 bg-surface/90 hover:bg-surface border border-whisper/80 hover:border-gold/50 backdrop-blur-md px-3 py-1.5 rounded-full text-xs text-foreground transition-all shadow-lg"
+          {/* Active Model Photograph with Camera Smooth Zoom */}
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={modelImageSrc + cameraMode}
+              initial={{ opacity: 0, scale: 0.96, filter: "blur(6px)" }}
+              animate={{
+                opacity: 1,
+                scale: cameraTransforms[cameraMode].scale,
+                y: cameraTransforms[cameraMode].y,
+                filter: "blur(0px)",
+              }}
+              exit={{ opacity: 0, scale: 1.02, filter: "blur(4px)" }}
+              transition={{ duration: 0.65, ease: [0.16, 1, 0.3, 1] }}
+              className="relative w-[92%] h-[92%] max-w-[540px] rounded-2xl overflow-hidden shadow-2xl border border-whisper/40"
             >
-              <span className="w-2 h-2 rounded-full" style={{ backgroundColor: item.accentHex || item.colorHex }} />
-              <button 
-                onClick={() => onSelectItemCategory?.(cat)}
-                className="font-medium hover:text-gold transition-colors text-left truncate max-w-[140px]"
-              >
-                {item.name}
-              </button>
-              <span className="text-[10px] text-steel font-mono">${item.price}</span>
-              {onRemoveItem && (
-                <button
-                  onClick={() => onRemoveItem(cat)}
-                  className="text-steel hover:text-red-400 text-xs ml-1 transition-colors"
-                  title={`Quitar ${item.name}`}
-                >
-                  ✕
-                </button>
-              )}
-            </div>
-          );
-        })}
+              <Image
+                src={modelImageSrc}
+                alt={lookTitle}
+                fill
+                priority
+                className="object-cover object-top transition-transform duration-700 select-none"
+              />
+
+              {/* Shadow vignette around edges for editorial depth */}
+              <div className="absolute inset-0 bg-gradient-to-t from-canvas/90 via-transparent to-black/30 pointer-events-none" />
+
+              {/* Floor contact shadow */}
+              <div className="absolute bottom-0 inset-x-0 h-28 bg-gradient-to-t from-canvas via-canvas/60 to-transparent pointer-events-none" />
+            </motion.div>
+          </AnimatePresence>
+
+          {/* Golden Particle Sparkles */}
+          <div className="absolute inset-0 pointer-events-none z-15 overflow-hidden">
+            {[...Array(6)].map((_, i) => (
+              <motion.div
+                key={i}
+                animate={{
+                  y: [0, -70, -140],
+                  opacity: [0, 0.8, 0],
+                  scale: [0.6, 1.4, 0.4],
+                }}
+                transition={{
+                  duration: 3 + i * 0.8,
+                  repeat: Infinity,
+                  delay: i * 0.7,
+                  ease: "easeInOut",
+                }}
+                style={{
+                  left: `${25 + i * 11}%`,
+                  bottom: `${15 + (i % 3) * 20}%`,
+                }}
+                className="absolute w-2 h-2 rounded-full bg-gradient-to-r from-amber-200 to-gold blur-[1px] shadow-sm shadow-gold"
+              />
+            ))}
+          </div>
+        </motion.div>
+      </motion.div>
+
+      {/* 4. TOP HUD BAR: Real-time Camera & Runway Status */}
+      <div className="absolute top-4 inset-x-4 z-30 flex items-center justify-between pointer-events-none">
+        {/* Left Badge: Live Status */}
+        <div className="flex items-center gap-2 bg-canvas/80 backdrop-blur-md px-3.5 py-1.5 rounded-full border border-whisper text-xs font-mono tracking-wider text-gold shadow-lg pointer-events-auto">
+          <span className="w-2 h-2 rounded-full bg-gold animate-ping" />
+          <span className="font-serif tracking-widest uppercase">MODELO DE PASARELA EN VIVO</span>
+        </div>
+
+        {/* Right HUD: Camera Mode Buttons */}
+        <div className="flex items-center gap-1 bg-surface/90 backdrop-blur-md p-1 rounded-xl border border-whisper shadow-lg pointer-events-auto">
+          <button
+            onClick={() => setCameraMode("full")}
+            title="Cámara Cuerpo Entero"
+            className={`px-2.5 py-1 text-xs rounded-lg transition-all ${
+              cameraMode === "full"
+                ? "bg-gold text-canvas font-semibold shadow-sm"
+                : "text-steel hover:text-foreground"
+            }`}
+          >
+            Cuerpo
+          </button>
+          <button
+            onClick={() => setCameraMode("waist")}
+            title="Cámara Enfoque Medio (Cintura & Bolso)"
+            className={`px-2.5 py-1 text-xs rounded-lg transition-all ${
+              cameraMode === "waist"
+                ? "bg-gold text-canvas font-semibold shadow-sm"
+                : "text-steel hover:text-foreground"
+            }`}
+          >
+            Silueta
+          </button>
+          <button
+            onClick={() => setCameraMode("closeup")}
+            title="Primer Plano (Escote & Joyas)"
+            className={`px-2.5 py-1 text-xs rounded-lg transition-all ${
+              cameraMode === "closeup"
+                ? "bg-gold text-canvas font-semibold shadow-sm"
+                : "text-steel hover:text-foreground"
+            }`}
+          >
+            Joyería
+          </button>
+        </div>
       </div>
 
-      {/* Floating Zoom & Reset Tools (Bottom Right) */}
-      <div className="absolute bottom-4 right-4 z-20 hidden md:flex flex-col gap-1.5 bg-surface/80 backdrop-blur-md p-1.5 rounded-xl border border-whisper">
-        <button
-          onClick={() => setZoomLevel((z) => Math.min(1.4, z + 0.15))}
-          title="Acercar silueta"
-          className="p-1.5 rounded-lg text-steel hover:text-gold hover:bg-white/5 transition-all"
-        >
-          <ZoomIn size={16} />
-        </button>
-        <button
-          onClick={() => setZoomLevel((z) => Math.max(0.85, z - 0.15))}
-          title="Alejar silueta"
-          className="p-1.5 rounded-lg text-steel hover:text-gold hover:bg-white/5 transition-all"
-        >
-          <ZoomOut size={16} />
-        </button>
-        <button
-          onClick={() => setZoomLevel(1)}
-          title="Restablecer vista"
-          className="p-1.5 rounded-lg text-steel hover:text-gold hover:bg-white/5 transition-all"
-        >
-          <RotateCcw size={16} />
-        </button>
+      {/* 5. FLOATING ACCESSORY & DETAIL CALLOUT (Macro Inspection Popover) */}
+      <div className="absolute top-16 right-4 z-30 hidden sm:flex flex-col gap-2 pointer-events-auto">
+        {selectedItems.jewelry && (
+          <motion.div
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            className="flex items-center gap-3 bg-surface/90 hover:bg-surface border border-whisper hover:border-gold/50 backdrop-blur-md p-2 rounded-xl text-xs shadow-xl max-w-[210px] transition-all group"
+          >
+            <div className="relative w-10 h-10 rounded-lg overflow-hidden shrink-0 border border-gold/30">
+              <Image
+                src="/images/product_accessories.jpg"
+                alt="Detalle de Joyas"
+                fill
+                className="object-cover group-hover:scale-110 transition-transform"
+              />
+            </div>
+            <div className="overflow-hidden">
+              <div className="text-[10px] text-gold uppercase font-mono tracking-wider">Joya Activa</div>
+              <div className="text-foreground font-serif truncate">{selectedItems.jewelry.name}</div>
+              <div className="text-[11px] text-steel font-mono">${selectedItems.jewelry.price}</div>
+            </div>
+          </motion.div>
+        )}
+
+        {selectedItems.bag && (
+          <motion.div
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            className="flex items-center gap-3 bg-surface/90 hover:bg-surface border border-whisper hover:border-gold/50 backdrop-blur-md p-2 rounded-xl text-xs shadow-xl max-w-[210px] transition-all group"
+          >
+            <div className="relative w-10 h-10 rounded-lg overflow-hidden shrink-0 border border-gold/30">
+              <Image
+                src="/images/product_bags.jpg"
+                alt="Detalle Bolso"
+                fill
+                className="object-cover group-hover:scale-110 transition-transform"
+              />
+            </div>
+            <div className="overflow-hidden">
+              <div className="text-[10px] text-gold uppercase font-mono tracking-wider">Bolso de Mano</div>
+              <div className="text-foreground font-serif truncate">{selectedItems.bag.name}</div>
+              <div className="text-[11px] text-steel font-mono">${selectedItems.bag.price}</div>
+            </div>
+          </motion.div>
+        )}
+      </div>
+
+      {/* 6. BOTTOM HUD: Active Outfit Bar & 3D Interactive Controls */}
+      <div className="absolute bottom-4 inset-x-4 z-30 flex flex-col sm:flex-row items-center justify-between gap-3 pointer-events-none">
+        {/* Current Active Look Tags */}
+        <div className="flex flex-wrap gap-1.5 justify-center sm:justify-start pointer-events-auto">
+          {(["garment", "jewelry", "bag", "shoes"] as GarmentCategory[]).map((cat) => {
+            const item = selectedItems[cat];
+            if (!item) return null;
+            return (
+              <div
+                key={cat}
+                className="flex items-center gap-2 bg-canvas/90 border border-whisper hover:border-gold/50 backdrop-blur-md px-3 py-1.5 rounded-full text-xs text-foreground shadow-lg transition-all"
+              >
+                <span
+                  className="w-2 h-2 rounded-full shrink-0"
+                  style={{ backgroundColor: item.accentHex || item.colorHex }}
+                />
+                <button
+                  onClick={() => onSelectItemCategory?.(cat)}
+                  className="font-medium hover:text-gold transition-colors truncate max-w-[130px]"
+                >
+                  {item.name}
+                </button>
+                <span className="text-[10px] text-steel font-mono">${item.price}</span>
+                {onRemoveItem && (
+                  <button
+                    onClick={() => onRemoveItem(cat)}
+                    className="text-steel hover:text-red-400 text-xs ml-0.5 transition-colors"
+                    title={`Quitar ${item.name}`}
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        {/* 3D Turntable Toggle Pill */}
+        <div className="flex items-center gap-2 bg-surface/85 backdrop-blur-md px-3 py-1.5 rounded-full border border-whisper shadow-lg pointer-events-auto">
+          <Rotate3d size={14} className={isTurntableActive ? "text-gold animate-spin" : "text-steel"} style={{ animationDuration: "6s" }} />
+          <button
+            onClick={() => setIsTurntableActive(!isTurntableActive)}
+            className="text-xs text-foreground hover:text-gold font-medium transition-colors"
+          >
+            {isTurntableActive ? "Rotación 3D Activa" : "Rotación Pausada"}
+          </button>
+          <span className="text-whisper">•</span>
+          <span className="text-[10px] text-steel hidden md:inline">Arrastra para girar</span>
+        </div>
       </div>
     </div>
   );
